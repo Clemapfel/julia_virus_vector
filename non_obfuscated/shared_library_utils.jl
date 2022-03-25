@@ -1,19 +1,17 @@
-
 module Vi
 
     using Base64
 
+    # zero width spaces
     const mongolian_vowel = Char(0x180E)
     const zero_width = Char(0x200B)
-    const zero_width_nb = Char(0xFEFF)
-    const thin = Char(0x2009)
-    const hair = Char(0x200A)
-    const carriage_return = Char(0x0D)
 
+    # maps digits (0, 1, ..., 9) to ASCII trivially printable characters that are not used by Base64
     const digit_mapping_first_i = 48;#33;
     const digit_mapping = Dict([i-digit_mapping_first_i => Char(i) for i in digit_mapping_first_i:(digit_mapping_first_i + 10)])
     const digit_unmapping = Dict([pair.second => pair.first for pair in Vi.digit_mapping])
 
+    # transform number into their digit mapping
     function encode_number(count::Int64) ::String
 
         max = 1;
@@ -29,6 +27,7 @@ module Vi
         return String(out);
     end
 
+    # transform digit mapping to number
     function decode_number(string::String) ::Int64
 
         current_decimal_i = length(string)-1
@@ -41,6 +40,7 @@ module Vi
         return out;
     end
 
+    # compress a string, replace any sequential repetitions with their number, e.g. AAAAAAA becomes A7
     function zip(input::Vector{Char}) ::Vector{Char}
 
         out = Vector{Char}()
@@ -71,6 +71,7 @@ module Vi
         return out
     end
 
+    # uncompress the string
     function unzip(str_in::Vector{Char}) ::Vector{Char}
 
         out = Vector{Char}()
@@ -104,7 +105,7 @@ module Vi
         return out
     end
 
-
+    # encode a shared library called "..." in the same directory
     function encode(binary_path::String = "...") ::String
 
         io = IOBuffer();
@@ -112,62 +113,31 @@ module Vi
         write(pipe, open(binary_path))
 
         as_uint8 = Vector{Char}(take!(io))
+        as_uint8 = zip(as_uint8)
 
-        encoded = Vector{Char}()
+        for pair in digit_unmapping
+            pushfirst!(as_uint8, pair.first)
+        end
+
+        as_binary = Vector{Char}()
         zero = zero_width
         one = mongolian_vowel
-
-        # histogram
-        hist = Vector{Int64}();
-        for i in 1:256
-            push!(hist, 0)
-        end
-
-        for i in as_uint8
-            setindex!(hist, getindex(hist, i) + 1, i)
-        end
-
-        res = Vector{Pair{Char, Int64}}()
-        for i in 1:length(hist)
-            if hist[i] != 0
-                push!(res, Char(i) => hist[i])
-            end
-        end
-
-        for r in res
-            println(convert(UInt8, r.first), ": ", r)
-        end
-
-        return ""
 
         for i in as_uint8
             for b in bitstring(i)
                 if b == "0"
-                    push!(encoded, zero);
+                    push!(as_binary, zero);
                 else
-                    push!(encoded, one);
+                    push!(as_binary, one);
                 end
             end
         end
 
         out = open("out.log", "w")
-        return String(as_uint8)
+        write(out, String(as_uint8))
+        return String(as_binary)
     end
-
-    function decode()
+    export encode
 end
 
-#println(Vi.encode())
-n = 1234567890
-println(n)
-println(Vi.encode_number(n))
-println(Vi.decode_number(encode_number(n)))
-
-str = "AAAAAAAAABCDEFGHIJKLMNOPPPPPPQRSTUUUUV"
-zipped = zip([i for i in str])
-unzipped = unzip(zipped);
-println(str)
-println(String(zipped))
-println(String(unzipped))
-
-end
+Vi.encode()
