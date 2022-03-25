@@ -1,8 +1,6 @@
-#include "_.h"
-
 #include <stdio.h>
 
-void execute()
+inline void execute()
 {
     printf("hello, virus\n");
 }
